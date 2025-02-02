@@ -1,0 +1,43 @@
+name: Scrape Reddit Comments
+
+on:
+  schedule:
+    - cron: "0 12 * * *"  # Runs daily at 12:00 UTC
+  workflow_dispatch:  # Allows manual runs
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: pip install praw
+
+      - name: Run Reddit Scraper
+        env:
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_USER_AGENT: ${{ secrets.REDDIT_USER_AGENT }}
+        run: python scrape_reddit.py
+
+      - name: Commit and Push Results
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+          git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}.git
+          if [ -f "reddit_comments.json" ]; then
+            git add reddit_comments.json
+            git commit -m "Updated Reddit comments"
+            git push origin main || echo "Nothing to push"
+          else
+            echo "⚠️ No comments found. Skipping push."
